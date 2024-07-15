@@ -1,0 +1,3 @@
+MOV a, 5 
+ADD a, 2 
+HLT
