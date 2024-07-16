@@ -7,6 +7,7 @@ registers [
 ]
 stack = u8 [ 128 ]
 ram   = u8 [ 512 ]
+memory = u8 [ 4096 ]
 
 
 
