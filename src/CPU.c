@@ -42,10 +42,8 @@ void next(CPU *cpu) { cpu->PC++; }
 
 uint16_t *fetch(CPU *cpu) {
 	uint16_t *command = (uint16_t*)malloc(4 * sizeof(uint16_t));
-     printf("OPCODE: ");
     for(int i = 0; i < 4; i++) {
         command[i] = cpu->memory[(cpu->PC * 4) + i];
-         printf("%x ", command[i]);
     }
     return command;
 }
@@ -60,32 +58,55 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
     switch(instruction[0]) {
         case HLT: {
             cpu->halt = true;
+            printf("[x] HLT\n");
         } break;
+
         case ADD: {
+            // check for overflow?
+            cpu->registers[regA] += (regB == 0)? value : cpu->registers[regB];
+            printf("[x] ADD\n");
+        } break;
+
+        case SUB: {
+            // check for underflow?
+            cpu->registers[regA] -= (regB == 0)? value : cpu->registers[regB];
+            printf("[x] SUB\n");
+        } break;
+
+        case MUL: {
+
+            cpu->registers[regA] *= (regB == 0)? value : cpu->registers[regB];
+            printf("[x] MUL\n");
+        } break;
+
+        case DIV: {
+
             if(regB == 0) {
-                cpu->registers[regA] += value; 
+                if(value == 0) {
+                    printf("[*] ZERO DIVISION EXCEPTION\n");
+                    break;
+                }
+                cpu->registers[regA] /= value;
             } else {
-                cpu->registers[regA] += cpu->registers[regB];
+                if(cpu->registers[regB] == 0) {
+                    printf("[*] ZERO DIVISION EXCEPTION\n");
+                    break;
+                }
+                cpu->registers[regA] /= cpu->registers[regB];
             }
-            printf("[x] ADD - RegA: %d\n", cpu->registers[regA]);
-            
+
+            printf("[x] DIV\n");
         } break;
 
         case XOR: {
-
-           if(regB == 0) {
-                cpu->registers[regA] ^= value;
-           } else {
-                cpu->registers[regA] ^= cpu->registers[regB];
-           }
-           printf("[x] XOR\n");
+                   
+            cpu->registers[regA] ^= (regB == 0)? value : cpu->registers[regB];
+            printf("[x] XOR\n");
         } break;
        
         case JE: {
-            if(regB == 0) {
-                if(cpu->registers[regA] != value) {
-                    next(cpu);
-                }
+            if(cpu->registers[regA] != value || cpu->registers[regA] == cpu->registers[regB]) {
+                next(cpu);
             }
             printf("[x] JE\n");
         } break;
@@ -96,12 +117,8 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
             printf("[x] JMP\n");
         } break;
         case MOV: {
-            if(regB == 0) {
-                cpu->registers[regA] = value;
-            } else {
-                cpu->registers[regA] = cpu->registers[regB];
-            }
-            printf("[x] MOV - RegA: %d\n", cpu->registers[regA]);
+            cpu->registers[regA] = (regB == 0)? value : cpu->registers[regB];
+            printf("[x] MOV\n");
         } break;
 
         default: {
@@ -124,7 +141,7 @@ int main(int argc, char *argv[]) {
 	FILE *program = fopen(program_file, "rb");
 
 	if (program == NULL) {
-		fprintf(stderr, "Something was wrong on opening the file");
+		fprintf(stderr, "Something was wrong on opening the file\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -136,7 +153,6 @@ int main(int argc, char *argv[]) {
 	    decode_execute(&cpu, instruction);
         next(&cpu);
     }
-    printf("\n");
 
 	fclose(program);
 	exit(EXIT_SUCCESS);
