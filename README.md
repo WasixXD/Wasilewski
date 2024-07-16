@@ -1,4 +1,3 @@
-Emulando uma CPU
 
 Fetch -> Decode -> Execute
 program counter = 0;

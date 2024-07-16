@@ -1,7 +1,6 @@
 import unittest
 import subprocess
 import util
-from time import sleep
 
 class TestCPU(unittest.TestCase):
 
@@ -79,8 +78,117 @@ class TestCPU(unittest.TestCase):
         expected = "Wasix CPU Machine\n[x] DIV\n[x] HLT\n"
         self.assertEqual(stdout, expected)
 
+    def test_and(self):
+        self.path = "./test/and.bin"
+        program = [
+            "00000101000100010000000000000000",
+            "00000000000000000000000000000000",
+        ]
+        util.write_file(self.path, program)
+
+        resultado = subprocess.run(["./machine.o", self.path], stdout=subprocess.PIPE)
+        stdout = resultado.stdout.decode('utf-8')
+        expected = "Wasix CPU Machine\n[x] AND\n[x] HLT\n"
+        self.assertEqual(stdout, expected)
 
 
-        
+    def test_or(self):
+        self.path = "./test/or.bin"
+        program = [
+            "00000110000100010000000000000000",
+            "00000000000000000000000000000000",
+        ]
+        util.write_file(self.path, program)
+
+        resultado = subprocess.run(["./machine.o", self.path], stdout=subprocess.PIPE)
+        stdout = resultado.stdout.decode('utf-8')
+        expected = "Wasix CPU Machine\n[x] OR\n[x] HLT\n"
+        self.assertEqual(stdout, expected)
+
+
+    def test_fail_not(self):
+        self.path = "./test/not.bin"
+        program = [
+            "00000111000000000000000000000000",
+            "00000000000000000000000000000000",
+        ]
+        util.write_file(self.path, program)
+
+        resultado = subprocess.run(["./machine.o", self.path], stdout=subprocess.PIPE)
+        stdout = resultado.stdout.decode('utf-8')
+        expected = "Wasix CPU Machine\n[*] NOT INSTRUCTION SHOULD HAVE A VALUE\n[x] HLT\n"
+        self.assertEqual(stdout, expected)
+
+    def test_not(self):
+        self.path = "./test/not.bin"
+        program = [
+            "00000111000100000000000000000000",
+            "00000000000000000000000000000000",
+        ]
+        util.write_file(self.path, program)
+
+        resultado = subprocess.run(["./machine.o", self.path], stdout=subprocess.PIPE)
+        stdout = resultado.stdout.decode('utf-8')
+        expected = "Wasix CPU Machine\n[x] NOT\n[x] HLT\n"
+        self.assertEqual(stdout, expected)
+ 
+    def test_je(self):
+        self.path = "./test/je.bin"
+        program = [
+            "00000001000100000000000000000001",
+            "00010001000100000000000000000010",
+            "00000000000000000000000000000000",
+            "00010000000000000000000000000000",
+        ]
+        util.write_file(self.path, program)
+
+        resultado = subprocess.run(["./machine.o", self.path], stdout=subprocess.PIPE)
+        stdout = resultado.stdout.decode('utf-8')
+        expected = "Wasix CPU Machine\n[x] ADD\n[x] JE\n[x] JMP\n[x] ADD\n[x] JE\n[x] HLT\n"
+        self.assertEqual(stdout, expected)       
+
+    def test_jne(self):
+        self.path = "./test/jne.bin"
+        program = [
+            "00000001000100000000000000000001", # a += 1
+            "00010010000100000000000000000010", # if a != 2
+            "00000000000000000000000000000000", # HLT
+        ]
+        util.write_file(self.path, program)
+
+        resultado = subprocess.run(["./machine.o", self.path], stdout=subprocess.PIPE)
+        stdout = resultado.stdout.decode('utf-8')
+        expected = "Wasix CPU Machine\n[x] ADD\n[x] JNE\n[x] HLT\n"
+        self.assertEqual(stdout, expected)   
+
+    def test_jg(self):
+        self.path = "./test/jg.bin"
+        program = [
+            "00000001000100000000000000000100", # a += 4
+            "00010011000100000000000000000111", # if a > 7
+            "00000000000000000000000000000000", # HLT
+            "00010000000000000000000000000000", # JMP 0
+        ]
+        util.write_file(self.path, program)
+
+        resultado = subprocess.run(["./machine.o", self.path], stdout=subprocess.PIPE)
+        stdout = resultado.stdout.decode('utf-8')
+        expected = "Wasix CPU Machine\n[x] ADD\n[x] JG\n[x] JMP\n[x] ADD\n[x] JG\n[x] HLT\n"
+        self.assertEqual(stdout, expected)   
+
+    def test_jng(self):
+        self.path = "./test/jg.bin"
+        program = [
+            "00000001000100000000000000000100", # a += 4
+            "00010100000100000000000000000111", # if a < 7
+            "00000000000000000000000000000000", # HLT
+            "00010000000000000000000000000000", # JMP 0
+        ]
+        util.write_file(self.path, program)
+
+        resultado = subprocess.run(["./machine.o", self.path], stdout=subprocess.PIPE)
+        stdout = resultado.stdout.decode('utf-8')
+        expected = "Wasix CPU Machine\n[x] ADD\n[x] JNG\n[x] HLT\n"
+        self.assertEqual(stdout, expected)  
 if __name__ == "__main__":
     unittest.main()
