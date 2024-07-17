@@ -55,7 +55,9 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	uint8_t regA = instruction[1] >> 4;
 	uint8_t regB = instruction[1] & 0xF;
 
-	uint16_t value = instruction[2] | instruction[3];
+    uint16_t holder = instruction[2] << 8;
+	uint16_t value = holder | instruction[3];
+    
 	switch (instruction[0]) {
 	case HLT: {
 		cpu->halt = true;
@@ -129,14 +131,14 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	case SHR: {
 		// TODO: Check for errors
 		cpu->registers[0x5] = cpu->registers[regA] & 1;
-		cpu->registers[regA] <<= 1;
+		cpu->registers[regA] >>= 1;
 		printf("[x] SHR\n");
 	} break;
 
 	case SHL: {
 		// TODO: Check for errors
 		cpu->registers[0x5] = cpu->registers[regA] & 1;
-		cpu->registers[regA] >>= 1;
+		cpu->registers[regA] <<= 1;
 		printf("[x] SHL\n");
 	} break;
 	case JMP: {
@@ -181,9 +183,43 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 		printf("[x] JNG\n");
 	} break;
 	case MOV: {
-		cpu->registers[regA] = (regB == 0) ? value : cpu->registers[regB];
+        uint8_t key = instruction[2] >> 4;
+        uint16_t lower_nibble = (instruction[2] & 0xF) << 8;
+        if(key == 0xa) {
+            // Get the value on the memory and put it on the regA
+            uint16_t memory_index = lower_nibble | instruction[3];
+            uint16_t memory_value = cpu->memory[memory_index];      
+            cpu->registers[regA] = memory_value;
+        } else if(key == 0xb) {
+            // Put the memory index on the regA
+            cpu->registers[regA] = lower_nibble | instruction[3];
+        } else {
+            // Put the value of regB or the raw value on the regA
+		    cpu->registers[regA] = (regB == 0) ? value : cpu->registers[regB];
+        }
 		printf("[x] MOV\n");
 	} break;
+
+    case LOAD: {
+        // Always load the value on the memory
+        if(regB == 0) {
+            cpu->registers[regA] = cpu->memory[value];
+        } else {
+            cpu->registers[regA] = cpu->memory[cpu->registers[regB]];
+        }
+        printf("[x] LOAD\n");
+    } break;
+
+    case STORE: {
+        // store the value on regB or value on the memory_index on regA
+        if(regB == 0) {
+            cpu->memory[cpu->registers[regA]] = value;
+        } else {
+            cpu->memory[cpu->registers[regA]] = cpu->registers[regB];
+        }
+        printf("[x] STORE\n");
+    } break;
+
 	default: {
 
 		printf("TODO\n");
@@ -212,16 +248,19 @@ int main(int argc, char *argv[]) {
 	}
 
 	// load_program
-	fread(cpu.memory, 1, CPU_MEM, program);
-
+	int bytes = fread(cpu.memory, 1, CPU_MEM, program);
+    
 	while (!cpu.halt) {
 		uint16_t *instruction = fetch(&cpu);
 		decode_execute(&cpu, instruction);
 		next(&cpu);
 	}
 
-	if (debug)
-		printf("[%d %d %d %d %d]", cpu.registers[1], cpu.registers[2], cpu.registers[3], cpu.registers[4], cpu.registers[5]);
+	if (debug) {
+        printf("Read %d bits\n", bytes);
+        debug_mem(&cpu);
+		printf("[%d %d %d %d %d]\n", cpu.registers[1], cpu.registers[2], cpu.registers[3], cpu.registers[4], cpu.registers[5]);
+    }
 
 	fclose(program);
 	exit(EXIT_SUCCESS);
