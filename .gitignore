@@ -1,5 +1,6 @@
-debug.txt
+mem.txt
 program.txt
-./machine.o
-./asm.o
+*.o
+*.o
+*.bin
 test/__pycache__
