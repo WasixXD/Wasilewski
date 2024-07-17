@@ -16,6 +16,8 @@ typedef enum {
 	OR = 0x06,
 	NOT = 0x07,
 	XOR = 0x08,
+	SHR = 0x09,
+	SHL = 0b00001010,
 	JMP = 0x10,
 	JE = 0x11,
 	JNE = 0x12,
@@ -28,7 +30,7 @@ typedef enum {
 
 typedef struct {
 	uint16_t PC;
-	uint16_t registers[0x5];
+	uint16_t registers[0x6];
 	uint8_t memory[CPU_MEM];
 	bool halt;
 } CPU;
@@ -124,6 +126,19 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 		printf("[x] XOR\n");
 	} break;
 
+	case SHR: {
+		// TODO: Check for errors
+		cpu->registers[0x5] = cpu->registers[regA] & 1;
+		cpu->registers[regA] <<= 1;
+		printf("[x] SHR\n");
+	} break;
+
+	case SHL: {
+		// TODO: Check for errors
+		cpu->registers[0x5] = cpu->registers[regA] & 1;
+		cpu->registers[regA] >>= 1;
+		printf("[x] SHL\n");
+	} break;
 	case JMP: {
 		// Dangerously
 		cpu->PC = value - 1;
@@ -178,6 +193,11 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 
 int main(int argc, char *argv[]) {
 	printf("Wasix CPU Machine\n");
+	bool debug = false;
+
+	if (argv[2] != NULL && strcmp(argv[2], "1") == 0) {
+		debug = true;
+	}
 
 	CPU cpu = {.PC = 0, .halt = false};
 
@@ -199,6 +219,9 @@ int main(int argc, char *argv[]) {
 		decode_execute(&cpu, instruction);
 		next(&cpu);
 	}
+
+	if (debug)
+		printf("[%d %d %d %d %d]", cpu.registers[1], cpu.registers[2], cpu.registers[3], cpu.registers[4], cpu.registers[5]);
 
 	fclose(program);
 	exit(EXIT_SUCCESS);

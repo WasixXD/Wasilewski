@@ -190,5 +190,35 @@ class TestCPU(unittest.TestCase):
         stdout = resultado.stdout.decode('utf-8')
         expected = "Wasix CPU Machine\n[x] ADD\n[x] JNG\n[x] HLT\n"
         self.assertEqual(stdout, expected)  
+
+    def test_shr(self):
+        self.path = "./test/shr.bin"
+        program = [
+            "00010101000100000000000000000001", # a = 1
+            "00001001000100000000000000000000", # a >> 1
+            "00010001010100000000000000000001", # JE e == 1
+            "00000000000000000000000000000000", # HLT
+        ]
+        util.write_file(self.path, program)
+
+        resultado = subprocess.run(["./machine.o", self.path], stdout=subprocess.PIPE)
+        stdout = resultado.stdout.decode('utf-8')
+        expected = "Wasix CPU Machine\n[x] MOV\n[x] SHR\n[x] JE\n[x] HLT\n"
+        self.assertEqual(stdout, expected)  
+    def test_shl(self):
+        self.path = "./test/jg.bin"
+        program = [
+            "00010101000100000000000000000001", # a = 1
+            "00001010000100000000000000000000", # a >> 1
+            "00010001010100000000000000000000", # JE e == 0
+            "00000000000000000000000000000000", # HLT
+        ]
+        util.write_file(self.path, program)
+
+        resultado = subprocess.run(["./machine.o", self.path], stdout=subprocess.PIPE)
+        stdout = resultado.stdout.decode('utf-8')
+        expected = "Wasix CPU Machine\n[x] MOV\n[x] SHL\n[x] JE\n[x] HLT\n"
+        self.assertEqual(stdout, expected)  
+
 if __name__ == "__main__":
     unittest.main()
