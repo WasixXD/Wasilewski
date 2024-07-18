@@ -1,7 +1,7 @@
 
 TODO: 
     [x] - Fazer a stack
-    [ ] - Chamada de Procedures
+    [x] - Chamada de Procedures
     [ ] - Interrupts
     [ ] - Assembler
 
@@ -66,6 +66,35 @@ PUSHR 0001 1010; PUSH all registers
 POPR 0001 1011; POP all registers
 
 
+CALL 0001 1100; CALL a procedure (The CPU only knows how to jump, put the work of discover where the procedure is located on the assembler)
+
+RET 0001 1101; Return to the execution
+
+___
+Exemplo em assembly
+```asm
+0 MOV a, 2
+1 CALL double; assembler -> CALL [0x5]
+2 ADD a, 1
+3 HLT
+4 
+5 double: 
+6 MUL a, 2
+7 RET
+8 HLT
+```
+binário
+```bin
+0001 0101 0001 0000 0000 0000 0000 0001
+0001 1100 0000 0000 0000 0000 0000 0101
+0000 0001 0001 0000 0000 0000 0000 0001
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0001
+0000 0011 0001 0000 0000 0000 0000 0010
+0001 1101 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+```
 ___
 Exemplo em Assembly
 

@@ -62,7 +62,7 @@ class TestCPU(unittest.TestCase):
 
         resultado = subprocess.run(["./machine.o", self.path], stdout=subprocess.PIPE)
         stdout = resultado.stdout.decode('utf-8')
-        expected = "Wasix CPU Machine\n[*] ZERO DIVISION EXCEPTION\n[x] HLT\n"
+        expected = "Wasix CPU Machine\n[*] ZERO DIVISION EXCEPTION\n"
         self.assertEqual(stdout, expected)
 
     def test_div(self):
@@ -116,7 +116,7 @@ class TestCPU(unittest.TestCase):
 
         resultado = subprocess.run(["./machine.o", self.path], stdout=subprocess.PIPE)
         stdout = resultado.stdout.decode('utf-8')
-        expected = "Wasix CPU Machine\n[*] NOT INSTRUCTION SHOULD HAVE A VALUE\n[x] HLT\n"
+        expected = "Wasix CPU Machine\n[*] NOT INSTRUCTION SHOULD HAVE A VALUE\n"
         self.assertEqual(stdout, expected)
 
     def test_not(self):

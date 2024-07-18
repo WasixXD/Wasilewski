@@ -32,6 +32,8 @@ typedef enum {
 	POP = 0x19,
 	PUSHR = 0x1a,
 	POPR  = 0x1b,
+	CALL  = 0x1c,
+	RET   = 0x1d,
 } Commands;
 
 typedef struct {
@@ -57,7 +59,7 @@ void push(CPU *cpu, uint16_t value) {
 
 uint16_t pop(CPU *cpu) {
 	uint16_t returned = cpu->memory[cpu->BSP + cpu->SP];
-	cpu->SP--;
+	cpu->SP-= cpu->SP == cpu->BSP? 0 : 1;
 
 	return returned;
 }
@@ -100,7 +102,6 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	} break;
 
 	case MUL: {
-
 		cpu->registers[regA] *= (regB == 0) ? value : cpu->registers[regB];
 		printf("[x] MUL\n");
 	} break;
@@ -110,13 +111,13 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 		if (regB == 0) {
 			if (value == 0) {
 				printf("[*] ZERO DIVISION EXCEPTION\n");
-				break;
+				exit(EXIT_FAILURE);
 			}
 			cpu->registers[regA] /= value;
 		} else {
 			if (cpu->registers[regB] == 0) {
 				printf("[*] ZERO DIVISION EXCEPTION\n");
-				break;
+				exit(EXIT_FAILURE);
 			}
 			cpu->registers[regA] /= cpu->registers[regB];
 		}
@@ -138,7 +139,7 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	case NOT: {
 		if (regA == 0) {
 			printf("[*] NOT INSTRUCTION SHOULD HAVE A VALUE\n");
-			break;
+			exit(EXIT_FAILURE);
 		}
 		cpu->registers[regA] = ~cpu->registers[regA];
 		printf("[x] NOT\n");
@@ -247,7 +248,7 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	case PUSH: {
 		if(regA == 0 && value == 0) {
 			printf("[*] PUSH COMMAND NEED A VALUE\n");
-			break;
+			exit(EXIT_FAILURE);
 		}
 		
 		push(cpu, regA == 0? value : cpu->registers[regA]);	
@@ -257,7 +258,7 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	case POP: {
 		if(regA == 0) { 
 			printf("[*] POP COMMAND NEED A REGISTER\n"); 
-			break;
+			exit(EXIT_FAILURE);
 		}
 		cpu->registers[regA] = pop(cpu);
 		printf("[x] POP\n");
@@ -278,6 +279,20 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 
 	} break;
 
+	case CALL: {
+		if(value == 0) {
+			printf("[*] CALL COMMAND NEED A LOCATION");
+			exit(EXIT_FAILURE);
+		}
+		push(cpu, cpu->PC);
+		cpu->PC = value;
+		printf("[x] CALL\n");
+	} break;
+
+	case RET: {
+		cpu->PC = pop(cpu);
+		printf("[x] RET\n");
+	} break;
 
 
 
