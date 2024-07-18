@@ -5,6 +5,8 @@
 #include <string.h>
 
 #define CPU_MEM 4096
+#define STACK_SIZE 256
+#define TOTAL_REGISTERS 0x6
 
 typedef enum {
 	HLT = 0x00,
@@ -17,7 +19,7 @@ typedef enum {
 	NOT = 0x07,
 	XOR = 0x08,
 	SHR = 0x09,
-	SHL = 0b00001010,
+	SHL = 0xa,
 	JMP = 0x10,
 	JE = 0x11,
 	JNE = 0x12,
@@ -26,11 +28,17 @@ typedef enum {
 	MOV = 0x15,
 	LOAD = 0x16,
 	STORE = 0x17,
+	PUSH = 0x18,
+	POP = 0x19,
+	PUSHR = 0x1a,
+	POPR  = 0x1b,
 } Commands;
 
 typedef struct {
 	uint16_t PC;
-	uint16_t registers[0x6];
+	uint8_t SP;
+	uint8_t BSP;
+	uint16_t registers[TOTAL_REGISTERS];
 	uint16_t memory[CPU_MEM];
 	bool halt;
 } CPU;
@@ -41,6 +49,18 @@ void debug_mem(CPU *cpu) {
 }
 
 void next(CPU *cpu) { cpu->PC++; }
+
+void push(CPU *cpu, uint16_t value) {
+	cpu->SP++;
+	cpu->memory[cpu->BSP + cpu->SP] = value; 
+}
+
+uint16_t pop(CPU *cpu) {
+	uint16_t returned = cpu->memory[cpu->BSP + cpu->SP];
+	cpu->SP--;
+
+	return returned;
+}
 
 uint16_t *fetch(CPU *cpu) {
 	uint16_t *command = (uint16_t *)malloc(4 * sizeof(uint16_t));
@@ -214,6 +234,7 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	} break;
 
 	case STORE: {
+		// TODO: Check if you're storing inside the program size
 		// store the value on regB or value on the memory_index on regA
 		if (regB == 0) {
 			cpu->memory[cpu->registers[regA]] = value;
@@ -222,6 +243,43 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 		}
 		printf("[x] STORE\n");
 	} break;
+
+	case PUSH: {
+		if(regA == 0 && value == 0) {
+			printf("[*] PUSH COMMAND NEED A VALUE\n");
+			break;
+		}
+		
+		push(cpu, regA == 0? value : cpu->registers[regA]);	
+		printf("[x] PUSH\n");
+	} break;
+
+	case POP: {
+		if(regA == 0) { 
+			printf("[*] POP COMMAND NEED A REGISTER\n"); 
+			break;
+		}
+		cpu->registers[regA] = pop(cpu);
+		printf("[x] POP\n");
+	} break;
+
+	case PUSHR: {
+		for(int i = 0x1; i < TOTAL_REGISTERS; i++) {
+			push(cpu, cpu->registers[i]);
+		}
+		printf("[x] PUSHR\n");
+
+	} break;
+	case POPR: {
+		for(int i = TOTAL_REGISTERS - 1; i >= 0x1; i--) {
+			cpu->registers[i] = pop(cpu);
+		}
+		printf("[x] POP\n");
+
+	} break;
+
+
+
 
 	default: {
 
@@ -238,7 +296,7 @@ int main(int argc, char *argv[]) {
 		debug = true;
 	}
 
-	CPU cpu = {.PC = 0, .halt = false};
+	CPU cpu = {.PC = 0, .SP = 0, .halt = false};
 
 	memset(cpu.memory, 0, CPU_MEM);
 
@@ -251,7 +309,12 @@ int main(int argc, char *argv[]) {
 	}
 
 	// load_program
-	int bytes = fread(cpu.memory, 1, CPU_MEM, program);
+	size_t bytes = fread(cpu.memory, 1, CPU_MEM, program);
+	
+	// TODO: this isn't the best way to do this
+	cpu.BSP = bytes;
+	cpu.SP = cpu.BSP;
+
 
 	while (!cpu.halt) {
 		uint16_t *instruction = fetch(&cpu);
@@ -260,7 +323,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (debug) {
-		printf("Read %d bits\n", bytes);
+		printf("Read %ld elements\n", bytes);
 		debug_mem(&cpu);
 		printf("[%d %d %d %d %d]\n", cpu.registers[1], cpu.registers[2], cpu.registers[3], cpu.registers[4], cpu.registers[5]);
 	}

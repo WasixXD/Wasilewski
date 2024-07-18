@@ -1,16 +1,22 @@
 
-Fetch -> Decode -> Execute
-program counter = 0;
+TODO: 
+    [x] - Fazer a stack
+    [ ] - Chamada de Procedures
+    [ ] - Interrupts
+    [ ] - Assembler
+
+
+
+Fetch -> Decode -> Execute \
+program counter = 0; \
 registers [
     A, B, C, D, E, F
-]
-stack = u8 [ 128 ]
+] \
+stack = u8 [ 128 ] 
 
-
-
-2⁸ = 256 instruções
-2⁴ = 16 registers de 32 bits
-2¹⁶= 65536 valores possiveis  
+2⁸ = 256 instruções \
+2⁴ = 16 registers de 32 bits \
+2¹⁶= 65536 valores possiveis \   
 
 instrução| regA | regB |
 0000 0000  0000   0000   0000 0000 0000 0000
@@ -52,6 +58,14 @@ MOV a, $150
 5        = valor real
 [0x150]  = valor na mémoria
 $150     = valor de mémoria
+
+
+PUSH 0001 1000; PUSH value or register
+POP  0001 1001; POP stack pointer on regA
+PUSHR 0001 1010; PUSH all registers
+POPR 0001 1011; POP all registers
+
+
 ___
 Exemplo em Assembly
 
@@ -76,7 +90,7 @@ ADD c, a ;c += a
 ADD c, b ;c += b 
 MOV a, b ;a = b
 MOV b, c ;b = c
-JE c, 34
+JE  c, 34
 HLT
 XOR c, c ;c = 0
 JMP [2]
@@ -101,9 +115,9 @@ Contagem de números 1 no número 17
 MOV a, 17 ;0 a = 17
 ADD b, 1  ;1 b++
 SHR a     ;2 a = a >> 1  
-JE e, 1   ;3 if e == 1
+JE  e, 1   ;3 if e == 1
 ADD c, 1  ;4 c++
-JE b, 8   ;5 if b == 8
+JE  b, 8   ;5 if b == 8
 HLT       ;6 htl
 JMP [1]   ;7 goto 1
 ```
@@ -118,3 +132,4 @@ em binário
 0000 0000 0000 0000 0000 0000 0000 0000
 0001 0000 0000 0000 0000 0000 0000 0001
 ```
+
