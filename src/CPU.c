@@ -8,6 +8,13 @@
 #define STACK_SIZE 256
 #define TOTAL_REGISTERS 0x6
 
+#define A 0x1
+#define B 0x2
+#define C 0x3
+#define D 0x4
+#define E 0x5
+
+static bool debug = false;
 typedef enum {
 	HLT = 0x00,
 	ADD = 0x01,
@@ -31,9 +38,10 @@ typedef enum {
 	PUSH = 0x18,
 	POP = 0x19,
 	PUSHR = 0x1a,
-	POPR  = 0x1b,
-	CALL  = 0x1c,
-	RET   = 0x1d,
+	POPR = 0x1b,
+	CALL = 0x1c,
+	RET = 0x1d,
+	SYS = 0x80,
 } Commands;
 
 typedef struct {
@@ -54,12 +62,12 @@ void next(CPU *cpu) { cpu->PC++; }
 
 void push(CPU *cpu, uint16_t value) {
 	cpu->SP++;
-	cpu->memory[cpu->BSP + cpu->SP] = value; 
+	cpu->memory[cpu->BSP + cpu->SP] = value;
 }
 
 uint16_t pop(CPU *cpu) {
 	uint16_t returned = cpu->memory[cpu->BSP + cpu->SP];
-	cpu->SP-= cpu->SP == cpu->BSP? 0 : 1;
+	cpu->SP -= cpu->SP == cpu->BSP ? 0 : 1;
 
 	return returned;
 }
@@ -83,27 +91,28 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	uint16_t holder = instruction[2] << 8;
 	uint16_t value = holder | instruction[3];
 
+	char *msg = "";
 	switch (instruction[0]) {
 	case HLT: {
 		cpu->halt = true;
-		printf("[x] HLT\n");
+		msg = "[x] HLT";
 	} break;
 
 	case ADD: {
 		// check for overflow?
 		cpu->registers[regA] += (regB == 0) ? value : cpu->registers[regB];
-		printf("[x] ADD\n");
+		msg = "[x] ADD";
 	} break;
 
 	case SUB: {
 		// check for underflow?
 		cpu->registers[regA] -= (regB == 0) ? value : cpu->registers[regB];
-		printf("[x] SUB\n");
+		msg = "[x] SUB";
 	} break;
 
 	case MUL: {
 		cpu->registers[regA] *= (regB == 0) ? value : cpu->registers[regB];
-		printf("[x] MUL\n");
+		msg = "[x] MUL";
 	} break;
 
 	case DIV: {
@@ -122,18 +131,18 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 			cpu->registers[regA] /= cpu->registers[regB];
 		}
 
-		printf("[x] DIV\n");
+		msg = "[x] DIV";
 	} break;
 
 	case AND: {
 		cpu->registers[regA] &= (regB == 0) ? value : cpu->registers[regB];
-		printf("[x] AND\n");
+		msg = "[x] AND";
 
 	} break;
 
 	case OR: {
 		cpu->registers[regA] |= (regB == 0) ? value : cpu->registers[regB];
-		printf("[x] OR\n");
+		msg = "[x] OR";
 	} break;
 
 	case NOT: {
@@ -142,47 +151,47 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 			exit(EXIT_FAILURE);
 		}
 		cpu->registers[regA] = ~cpu->registers[regA];
-		printf("[x] NOT\n");
+		msg = "[x] NOT";
 
 	} break;
 
 	case XOR: {
 
 		cpu->registers[regA] ^= (regB == 0) ? value : cpu->registers[regB];
-		printf("[x] XOR\n");
+		msg = "[x] XOR";
 	} break;
 
 	case SHR: {
 		// TODO: Check for errors
 		cpu->registers[0x5] = cpu->registers[regA] & 1;
 		cpu->registers[regA] >>= 1;
-		printf("[x] SHR\n");
+		msg = "[x] SHR";
 	} break;
 
 	case SHL: {
 		// TODO: Check for errors
 		cpu->registers[0x5] = cpu->registers[regA] & 1;
 		cpu->registers[regA] <<= 1;
-		printf("[x] SHL\n");
+		msg = "[x] SHL";
 	} break;
 	case JMP: {
 		// Dangerously
 		cpu->PC = value - 1;
-		printf("[x] JMP\n");
+		msg = "[x] JMP";
 	} break;
 
 	case JE: {
 		if (cpu->registers[regA] != value || cpu->registers[regA] == cpu->registers[regB]) {
 			next(cpu);
 		}
-		printf("[x] JE\n");
+		msg = "[x] JE";
 	} break;
 
 	case JNE: {
 		if (cpu->registers[regA] == value || cpu->registers[regA] != cpu->registers[regB])
 			next(cpu);
 
-		printf("[x] JNE\n");
+		msg = "[x] JNE";
 	} break;
 
 	case JG: {
@@ -193,7 +202,7 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 			if (cpu->registers[regA] < value)
 				next(cpu);
 		}
-		printf("[x] JG\n");
+		msg = "[x] JG";
 	} break;
 
 	case JNG: {
@@ -204,7 +213,7 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 			if (cpu->registers[regA] > value)
 				next(cpu);
 		}
-		printf("[x] JNG\n");
+		msg = "[x] JNG";
 	} break;
 	case MOV: {
 		uint8_t key = instruction[2] >> 4;
@@ -221,7 +230,7 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 			// Put the value of regB or the raw value on the regA
 			cpu->registers[regA] = (regB == 0) ? value : cpu->registers[regB];
 		}
-		printf("[x] MOV\n");
+		msg = "[x] MOV";
 	} break;
 
 	case LOAD: {
@@ -231,7 +240,7 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 		} else {
 			cpu->registers[regA] = cpu->memory[cpu->registers[regB]];
 		}
-		printf("[x] LOAD\n");
+		msg = "[x] LOAD";
 	} break;
 
 	case STORE: {
@@ -242,70 +251,77 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 		} else {
 			cpu->memory[cpu->registers[regA]] = cpu->registers[regB];
 		}
-		printf("[x] STORE\n");
+		msg = "[x] STORE";
 	} break;
 
 	case PUSH: {
-		if(regA == 0 && value == 0) {
+		if (regA == 0 && value == 0) {
 			printf("[*] PUSH COMMAND NEED A VALUE\n");
 			exit(EXIT_FAILURE);
 		}
-		
-		push(cpu, regA == 0? value : cpu->registers[regA]);	
-		printf("[x] PUSH\n");
+
+		push(cpu, regA == 0 ? value : cpu->registers[regA]);
+		msg = "[x] PUSH";
 	} break;
 
 	case POP: {
-		if(regA == 0) { 
-			printf("[*] POP COMMAND NEED A REGISTER\n"); 
+		if (regA == 0) {
+			printf("[*] POP COMMAND NEED A REGISTER\n");
 			exit(EXIT_FAILURE);
 		}
 		cpu->registers[regA] = pop(cpu);
-		printf("[x] POP\n");
+		msg = "[x] POP";
 	} break;
 
 	case PUSHR: {
-		for(int i = 0x1; i < TOTAL_REGISTERS; i++) {
+		for (int i = 0x1; i < TOTAL_REGISTERS; i++) {
 			push(cpu, cpu->registers[i]);
 		}
-		printf("[x] PUSHR\n");
+		msg = "[x] PUSHR";
 
 	} break;
 	case POPR: {
-		for(int i = TOTAL_REGISTERS - 1; i >= 0x1; i--) {
+		for (int i = TOTAL_REGISTERS - 1; i >= 0x1; i--) {
 			cpu->registers[i] = pop(cpu);
 		}
-		printf("[x] POP\n");
+		msg = "[x] POPR";
 
 	} break;
 
 	case CALL: {
-		if(value == 0) {
+		if (value == 0) {
 			printf("[*] CALL COMMAND NEED A LOCATION");
 			exit(EXIT_FAILURE);
 		}
 		push(cpu, cpu->PC);
 		cpu->PC = value;
-		printf("[x] CALL\n");
+		msg = "[x] CALL";
 	} break;
 
 	case RET: {
 		cpu->PC = pop(cpu);
-		printf("[x] RET\n");
+		msg = "[x] RET";
 	} break;
 
-
+	case SYS: {
+		if (cpu->registers[B] == 0) {
+			scanf("%hu", &cpu->registers[A]);
+		} else if (cpu->registers[B] == 1) {
+			printf("%d", cpu->registers[A]);
+		}
+		msg = "[x] SYS";
+	} break;
 
 	default: {
 
 		printf("TODO\n");
 	} break;
 	}
+	if (debug)
+		printf("%s\n", msg);
 }
 
 int main(int argc, char *argv[]) {
-	printf("Wasix CPU Machine\n");
-	bool debug = false;
 
 	if (argv[2] != NULL && strcmp(argv[2], "1") == 0) {
 		debug = true;
@@ -325,11 +341,10 @@ int main(int argc, char *argv[]) {
 
 	// load_program
 	size_t bytes = fread(cpu.memory, 1, CPU_MEM, program);
-	
+
 	// TODO: this isn't the best way to do this
 	cpu.BSP = bytes;
 	cpu.SP = cpu.BSP;
-
 
 	while (!cpu.halt) {
 		uint16_t *instruction = fetch(&cpu);
@@ -337,11 +352,11 @@ int main(int argc, char *argv[]) {
 		next(&cpu);
 	}
 
-	if (debug) {
-		printf("Read %ld elements\n", bytes);
-		debug_mem(&cpu);
-		printf("[%d %d %d %d %d]\n", cpu.registers[1], cpu.registers[2], cpu.registers[3], cpu.registers[4], cpu.registers[5]);
-	}
+	/*if (debug) {*/
+	/*	printf("Read %ld elements\n", bytes);*/
+	/*	debug_mem(&cpu);*/
+	/*	printf("[%d %d %d %d %d]\n", cpu.registers[1], cpu.registers[2], cpu.registers[3], cpu.registers[4], cpu.registers[5]);*/
+	/*}*/
 
 	fclose(program);
 	exit(EXIT_SUCCESS);
