@@ -7,11 +7,16 @@
 #define CPU_MEM 4096
 
 #define STACK_SIZE 256
-#define STACK_START 0x0800
+#define STACK_START 0x0800 // 2048
 #define STACK_END STACK_START + STACK_SIZE
 
-#define ROM_SIZE 512
-#define ROM_START STACK_END 
+
+#define BK_SIZE 512
+#define BK_START STACK_END
+#define BK_END BK_START + BK_SIZE
+
+#define ROM_SIZE 1024
+#define ROM_START BK_END
 #define ROM_END ROM_START + ROM_SIZE
 
 #define TOTAL_REGISTERS 0x6
@@ -71,6 +76,26 @@ void debug_mem(CPU *cpu) {
 	fwrite(cpu->memory, CPU_MEM, 1, debug_file);
 }
 
+uint16_t bk_set_addr(CPU *cpu, uint16_t addr) {
+	// Set in BK position the address that will be writen in ROM
+	cpu->memory[BK_START + addr] = cpu->FRB;
+	return cpu->memory[BK_START + addr];
+}
+
+uint16_t bk_get_addr(CPU *cpu, uint16_t addr) {
+	// Get in BK the address of the start of that v
+	return cpu->memory[BK_START + addr];
+}
+
+uint16_t bk_get_free(CPU *cpu) {
+	for(int i = BK_START; i < BK_END; i++) {
+		if(bk_get_addr(cpu, i) == 0) {
+			return i;
+		}
+	}
+	return BK_START;
+}
+
 void next(CPU *cpu) { cpu->PC++; }
 
 void push(CPU *cpu, uint16_t value) {
@@ -81,18 +106,21 @@ void push(CPU *cpu, uint16_t value) {
 uint16_t pop(CPU *cpu) {
 	uint16_t returned = cpu->memory[cpu->BSP + cpu->SP];
 	cpu->SP -= cpu->SP == cpu->BSP ? 0 : 1;
-
 	return returned;
 }
 
-uint16_t write_str(CPU *cpu, char *c, int size) {
-	uint16_t str_pointer;
-
-	for(int i = 0; i < size; i++) {
-		cpu->memory[cpu->FRB + i] = (uint16_t)c[i];
-	}
-	str_pointer = cpu->FRB;
+void increase_frb(CPU *cpu, int size) {
 	cpu->FRB += size + 1;
+}
+
+uint16_t write_str(CPU *cpu, char *c, int size) {
+	uint16_t next_free_pointer = bk_get_free(cpu);
+	uint16_t str_pointer = bk_set_addr(cpu, next_free_pointer);
+
+	for(int i = 0; c[i] != '\0'; i++) {
+		cpu->memory[str_pointer + i] = (uint16_t)c[i];
+	}
+	increase_frb(cpu, size);
 
 	return str_pointer;
 }
@@ -246,11 +274,11 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 		if (key == 0xa) {
 			// Get the value on the memory and put it on the regA
 			uint16_t memory_index = lower_nibble | instruction[3];
-			uint16_t memory_value = cpu->memory[ROM_START + memory_index];
+			uint16_t memory_value = cpu->memory[bk_get_addr(cpu, memory_index)];
 			cpu->registers[regA] = memory_value;
 		} else if (key == 0xb) {
 			// Put the memory index on the regA
-			cpu->registers[regA] = lower_nibble | instruction[3];
+			cpu->registers[regA] = bk_get_addr(cpu, lower_nibble | instruction[3]);
 		} else {
 			// Put the value of regB or the raw value on the regA
 			cpu->registers[regA] = (regB == 0) ? value : cpu->registers[regB];
@@ -261,9 +289,11 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	case LOAD: {
 		// Always load the value on the memory
 		if (regB == 0) {
-			cpu->registers[regA] = cpu->memory[ROM_START + value];
+			uint16_t address = bk_get_addr(cpu, value);
+			cpu->registers[regA] = cpu->memory[address];
 		} else {
-			cpu->registers[regA] = cpu->memory[ROM_START + cpu->registers[regB]];
+			uint16_t address = bk_get_addr(cpu, value);
+			cpu->registers[regA] = cpu->memory[address];
 		}
 		msg = "[x] LOAD";
 	} break;
@@ -271,9 +301,11 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	case STORE: {
 		// store the value on regB or value on the memory_index on regA
 		if (regB == 0) {
-			cpu->memory[cpu->registers[regA] + ROM_START] = value;
+			uint16_t address = bk_set_addr(cpu, value);
+			cpu->memory[address] = value;
 		} else {
-			cpu->memory[cpu->registers[regA] + ROM_START] = cpu->registers[regB];
+			uint16_t address = bk_set_addr(cpu, cpu->registers[regB]);
+			cpu->memory[address] = cpu->registers[regB];
 		}
 		msg = "[x] STORE";
 	} break;
@@ -330,10 +362,16 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	case SYS: {
 		if (cpu->registers[B] == 0) {
 			if(cpu->registers[C] == 1) {
-
 				char c[cpu->registers[D]];
-				scanf("%s", c);
+				// fgets always put a \n on the end of the string, we want to let the user choose
+				if(fgets(c, sizeof c, stdin) != NULL) {
+					size_t len = strlen(c);
+					if(len > 0 && c[len - 1] == '\n') {
+						c[len - 1] = '\0';
+					}
+				}	
 				cpu->registers[A] = (uint16_t)c[0];
+
 				if(cpu->registers[D] > 1) {
 					cpu->registers[A] = write_str(cpu, c, strlen(c));
 				}
@@ -342,7 +380,7 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 			}
 		} else if (cpu->registers[B] == 1) {
 			if(cpu->registers[C] == 0) {
-				printf("%X", cpu->registers[A]);
+				printf("%d", cpu->registers[A]);
 
 			} else {
 				for(int i = 0; i < cpu->registers[D]; i++) {
@@ -395,11 +433,6 @@ int main(int argc, char *argv[]) {
 
 	if(debug) 
 		debug_mem(&cpu);
-	/*if (debug) {*/
-	/*	printf("Read %ld elements\n", bytes);*/
-	/*	debug_mem(&cpu);*/
-	/*	printf("[%d %d %d %d %d]\n", cpu.registers[1], cpu.registers[2], cpu.registers[3], cpu.registers[4], cpu.registers[5]);*/
-	/*}*/
 
 	fclose(program);
 	exit(EXIT_SUCCESS);

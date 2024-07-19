@@ -2,7 +2,8 @@
 TODO: 
     [x] - Fazer a stack
     [x] - Chamada de Procedures
-    [ ] - Interrupts
+    [x] - Interrupts
+    [x] - Bookkeeper => o Bookkeeper será uma parte do processador que gerencia partes de memoria, então quando alguém tenta dar load em algo, ele pede o endereço daquele valor no bookkeeper e então pega dentro da ROM
     [ ] - Assembler
 
 
