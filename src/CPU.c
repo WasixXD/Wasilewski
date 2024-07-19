@@ -5,7 +5,15 @@
 #include <string.h>
 
 #define CPU_MEM 4096
+
 #define STACK_SIZE 256
+#define STACK_START 0x0800
+#define STACK_END STACK_START + STACK_SIZE
+
+#define ROM_SIZE 512
+#define ROM_START STACK_END 
+#define ROM_END ROM_START + ROM_SIZE
+
 #define TOTAL_REGISTERS 0x6
 
 #define A 0x1
@@ -45,9 +53,14 @@ typedef enum {
 } Commands;
 
 typedef struct {
+	// Program Counter
 	uint16_t PC;
+	// Stack Pointer
 	uint8_t SP;
-	uint8_t BSP;
+	// Base Stack Pointer
+	uint16_t BSP;
+	// Free Rom Byte -> next free byte on rom
+	uint16_t FRB;
 	uint16_t registers[TOTAL_REGISTERS];
 	uint16_t memory[CPU_MEM];
 	bool halt;
@@ -70,6 +83,18 @@ uint16_t pop(CPU *cpu) {
 	cpu->SP -= cpu->SP == cpu->BSP ? 0 : 1;
 
 	return returned;
+}
+
+uint16_t write_str(CPU *cpu, char *c, int size) {
+	uint16_t str_pointer;
+
+	for(int i = 0; i < size; i++) {
+		cpu->memory[cpu->FRB + i] = (uint16_t)c[i];
+	}
+	str_pointer = cpu->FRB;
+	cpu->FRB += size + 1;
+
+	return str_pointer;
 }
 
 uint16_t *fetch(CPU *cpu) {
@@ -221,7 +246,7 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 		if (key == 0xa) {
 			// Get the value on the memory and put it on the regA
 			uint16_t memory_index = lower_nibble | instruction[3];
-			uint16_t memory_value = cpu->memory[memory_index];
+			uint16_t memory_value = cpu->memory[ROM_START + memory_index];
 			cpu->registers[regA] = memory_value;
 		} else if (key == 0xb) {
 			// Put the memory index on the regA
@@ -236,20 +261,19 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	case LOAD: {
 		// Always load the value on the memory
 		if (regB == 0) {
-			cpu->registers[regA] = cpu->memory[value];
+			cpu->registers[regA] = cpu->memory[ROM_START + value];
 		} else {
-			cpu->registers[regA] = cpu->memory[cpu->registers[regB]];
+			cpu->registers[regA] = cpu->memory[ROM_START + cpu->registers[regB]];
 		}
 		msg = "[x] LOAD";
 	} break;
 
 	case STORE: {
-		// TODO: Check if you're storing inside the program size
 		// store the value on regB or value on the memory_index on regA
 		if (regB == 0) {
-			cpu->memory[cpu->registers[regA]] = value;
+			cpu->memory[cpu->registers[regA] + ROM_START] = value;
 		} else {
-			cpu->memory[cpu->registers[regA]] = cpu->registers[regB];
+			cpu->memory[cpu->registers[regA] + ROM_START] = cpu->registers[regB];
 		}
 		msg = "[x] STORE";
 	} break;
@@ -305,9 +329,26 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 
 	case SYS: {
 		if (cpu->registers[B] == 0) {
-			scanf("%hu", &cpu->registers[A]);
+			if(cpu->registers[C] == 1) {
+
+				char c[cpu->registers[D]];
+				scanf("%s", c);
+				cpu->registers[A] = (uint16_t)c[0];
+				if(cpu->registers[D] > 1) {
+					cpu->registers[A] = write_str(cpu, c, strlen(c));
+				}
+			} else {
+				scanf("%hu", &cpu->registers[A]);
+			}
 		} else if (cpu->registers[B] == 1) {
-			printf("%d", cpu->registers[A]);
+			if(cpu->registers[C] == 0) {
+				printf("%X", cpu->registers[A]);
+
+			} else {
+				for(int i = 0; i < cpu->registers[D]; i++) {
+					printf("%c", cpu->memory[cpu->registers[A] + i]);
+				}
+			}
 		}
 		msg = "[x] SYS";
 	} break;
@@ -342,9 +383,9 @@ int main(int argc, char *argv[]) {
 	// load_program
 	size_t bytes = fread(cpu.memory, 1, CPU_MEM, program);
 
-	// TODO: this isn't the best way to do this
-	cpu.BSP = bytes;
+	cpu.BSP = STACK_START;
 	cpu.SP = cpu.BSP;
+	cpu.FRB = ROM_START;
 
 	while (!cpu.halt) {
 		uint16_t *instruction = fetch(&cpu);
@@ -352,6 +393,8 @@ int main(int argc, char *argv[]) {
 		next(&cpu);
 	}
 
+	if(debug) 
+		debug_mem(&cpu);
 	/*if (debug) {*/
 	/*	printf("Read %ld elements\n", bytes);*/
 	/*	debug_mem(&cpu);*/
