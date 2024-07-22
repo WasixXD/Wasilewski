@@ -83,7 +83,7 @@ uint16_t bk_set_addr(CPU *cpu, uint16_t addr) {
 }
 
 uint16_t bk_get_addr(CPU *cpu, uint16_t addr) {
-	// Get in BK the address of the start of that v
+	// Get in BK the address of the start of that value
 	return cpu->memory[BK_START + addr];
 }
 
@@ -93,6 +93,7 @@ uint16_t bk_get_free(CPU *cpu) {
 			return i;
 		}
 	}
+	// Don't think that this is good
 	return BK_START;
 }
 
@@ -152,14 +153,24 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	} break;
 
 	case ADD: {
-		// check for overflow?
-		cpu->registers[regA] += (regB == 0) ? value : cpu->registers[regB];
+		if(regB == 0) {
+			cpu->registers[E] = (cpu->registers[regA] + value) > UINT16_MAX? 1 : 0;
+			cpu->registers[regA] += value;
+		} else {
+			cpu->registers[E] = (cpu->registers[regA] + cpu->registers[regB]) > UINT16_MAX? 1 : 0;
+			cpu->registers[regA] += cpu->registers[regB];
+		}
 		msg = "[x] ADD";
 	} break;
 
 	case SUB: {
-		// check for underflow?
-		cpu->registers[regA] -= (regB == 0) ? value : cpu->registers[regB];
+		if(regB == 0) {
+			cpu->registers[E] = (cpu->registers[regA] < value)? 1 : 0;
+			cpu->registers[regA] -= value;
+		} else {
+			cpu->registers[E] = (cpu->registers[regA] < cpu->registers[regB])? 1 : 0;
+			cpu->registers[regA] -= cpu->registers[regB];
+		}
 		msg = "[x] SUB";
 	} break;
 
@@ -215,15 +226,13 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	} break;
 
 	case SHR: {
-		// TODO: Check for errors
-		cpu->registers[0x5] = cpu->registers[regA] & 1;
+		cpu->registers[E] = cpu->registers[regA] & 1;
 		cpu->registers[regA] >>= 1;
 		msg = "[x] SHR";
 	} break;
 
 	case SHL: {
-		// TODO: Check for errors
-		cpu->registers[0x5] = cpu->registers[regA] & 1;
+		cpu->registers[E] = cpu->registers[regA] & 1;
 		cpu->registers[regA] <<= 1;
 		msg = "[x] SHL";
 	} break;
@@ -360,7 +369,9 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	} break;
 
 	case SYS: {
+		// B == 0 READ
 		if (cpu->registers[B] == 0) {
+			// C == 1 READ STRING
 			if(cpu->registers[C] == 1) {
 				char c[cpu->registers[D]];
 				// fgets always put a \n on the end of the string, we want to let the user choose
@@ -372,17 +383,22 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 				}	
 				cpu->registers[A] = (uint16_t)c[0];
 
+				// D == sizeof reading
 				if(cpu->registers[D] > 1) {
 					cpu->registers[A] = write_str(cpu, c, strlen(c));
 				}
-			} else {
+
+			// C == 0 READ INT
+			} else if(cpu->registers[C] == 0) {
 				scanf("%hu", &cpu->registers[A]);
 			}
+		// B == 1 WRITE
 		} else if (cpu->registers[B] == 1) {
+			// C == 0 WRITE INT
 			if(cpu->registers[C] == 0) {
 				printf("%d", cpu->registers[A]);
-
-			} else {
+			// C == 1 WRITE STRING
+			} else if(cpu->registers[C] == 1) {
 				for(int i = 0; i < cpu->registers[D]; i++) {
 					printf("%c", cpu->memory[cpu->registers[A] + i]);
 				}
