@@ -1,3 +1,4 @@
+#include <arpa/inet.h>
 #include <ctype.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -5,6 +6,18 @@
 #include <string.h>
 
 typedef enum { OP_CODE, COMMA, S_BRACKETS, DOLLAR, COMMENTARY, NUMBER, MEMORY_LOCATION, REGISTER, UNKNOWN, PROCEDURE } TOKENS_TYPE;
+
+typedef enum {
+	A_REGISTER = 0b0001,
+	B_REGISTER = 0b0010,
+	C_REGISTER = 0b0011,
+	D_REGISTER = 0b0100,
+	E_REGISTER = 0b0101,
+	HLT = 0b00000000,
+	ADD = 0b00000001,
+	MOV = 0b00010101,
+
+} OP_BINARY;
 
 typedef struct {
 	char *value;
@@ -71,23 +84,44 @@ Line *prepare_tokens(char *line) {
 	return items;
 }
 
-/*void parse_line(char *line) {*/
-/*	Line tokens = prepare_tokens(line);*/
-/*	printf("--------");*/
-/*	printf("\nLINE_COUNT: %d\n", tokens.line_index);*/
-/*	printf("NUMBER_OF_TOKENS: %d\n", tokens.tokens_count);*/
-/*	for (int i = 0; i < tokens.tokens_count; i++) {*/
-/*		if (tokens.tokens[i].token == OP_CODE) {*/
-/*			printf("OP_CODE: %s\n", tokens.tokens[i].value);*/
-/*		} else if (tokens.tokens[i].token == REGISTER) {*/
-/*			printf("REGISTER: %s\n", tokens.tokens[i].value);*/
-/*		} else if (tokens.tokens[i].token == COMMA) {*/
-/*			printf("COMMA\n");*/
-/*		} else if (tokens.tokens[i].token == NUMBER) {*/
-/*			printf("NUMBER: %s\n", tokens.tokens[i].value);*/
-/*		}*/
-/*	}*/
-/*}*/
+void compile(Line *head, char *output_file) {
+	Line *helper = head;
+	FILE *stream = fopen(output_file, "wb");
+	while (helper != NULL) {
+		uint8_t op_code = 0;
+		uint8_t regS = 0;
+		uint16_t value = 0;
+
+		for (int i = 0; i < helper->tokens_count; i++) {
+			Token current_token = helper->tokens[i];
+			// TODO: REFACTO THIS
+			if (current_token.token == OP_CODE) {
+				if (strcmp(current_token.value, "MOV") == 0) {
+					op_code = MOV;
+				} else if (strcmp(current_token.value, "ADD") == 0) {
+					op_code = ADD;
+				} else if (strcmp(current_token.value, "HLT") == 0) {
+					op_code = HLT;
+				}
+			} else if (current_token.token == REGISTER) {
+				if (strcmp(current_token.value, "a") == 0) {
+					regS = A_REGISTER << 4;
+				}
+			} else if (current_token.token == NUMBER) {
+				value = atoi(current_token.value);
+			}
+		}
+		uint32_t instruction = htonl(((uint32_t)op_code) << 24 | ((uint32_t)regS) << 16 | (uint32_t)value);
+		fwrite(&instruction, sizeof(instruction), 1, stream);
+		printf("instruction: 0x%08X\n", instruction);
+		printf("op_code: %d\n", op_code);
+		printf("regS: %d\n", regS);
+		printf("value: %d\n", value);
+
+		helper = helper->next_line;
+	}
+}
+
 int main(int argc, char *argv[]) {
 	if (argv[1] == NULL) {
 		fprintf(stderr, "Please specify a .was file\n");
@@ -122,6 +156,8 @@ int main(int argc, char *argv[]) {
 			program = program->next_line;
 		}
 	}
+
+	compile(head, output_file);
 
 	fclose(asm_file);
 	exit(EXIT_SUCCESS);
