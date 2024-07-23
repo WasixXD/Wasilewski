@@ -4,22 +4,27 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum { OP_CODE, COMMA, S_BRACKETS, DOLLAR, COMMENTARY, NUMBER, MEMORY_LOCATION, REGISTER, UNKNOWN } TOKENS_TYPE;
+typedef enum { OP_CODE, COMMA, S_BRACKETS, DOLLAR, COMMENTARY, NUMBER, MEMORY_LOCATION, REGISTER, UNKNOWN, PROCEDURE } TOKENS_TYPE;
 
 typedef struct {
 	char *value;
 	TOKENS_TYPE token;
 } Token;
 
-typedef struct {
+typedef struct Line {
 	int line_index;
 	Token tokens[16];
 	int tokens_count;
+	struct Line *next_line;
 } Line;
 
-Line prepare_tokens(char *line) {
+Line *prepare_tokens(char *line) {
 	static int line_count = 0;
-	Line items = {.line_index = line_count, .tokens_count = 0};
+	Line *items = (Line *)malloc(sizeof(Line));
+	items->next_line = NULL;
+	items->line_index = line_count;
+	items->tokens_count = 0;
+
 	int c = 0;
 
 	while (line[c] != '\0') {
@@ -59,30 +64,30 @@ Line prepare_tokens(char *line) {
 			c++;
 		}
 
-		items.tokens[items.tokens_count++] = new_token;
+		items->tokens[items->tokens_count++] = new_token;
 	}
 	line_count++;
 
 	return items;
 }
 
-void parse_line(char *line) {
-	Line tokens = prepare_tokens(line);
-	printf("--------");
-	printf("\nLINE_COUNT: %d\n", tokens.line_index);
-	printf("NUMBER_OF_TOKENS: %d\n", tokens.tokens_count);
-	for (int i = 0; i < tokens.tokens_count; i++) {
-		if (tokens.tokens[i].token == OP_CODE) {
-			printf("OP_CODE: %s\n", tokens.tokens[i].value);
-		} else if (tokens.tokens[i].token == REGISTER) {
-			printf("REGISTER: %s\n", tokens.tokens[i].value);
-		} else if (tokens.tokens[i].token == COMMA) {
-			printf("COMMA\n");
-		} else if (tokens.tokens[i].token == NUMBER) {
-			printf("NUMBER: %s\n", tokens.tokens[i].value);
-		}
-	}
-}
+/*void parse_line(char *line) {*/
+/*	Line tokens = prepare_tokens(line);*/
+/*	printf("--------");*/
+/*	printf("\nLINE_COUNT: %d\n", tokens.line_index);*/
+/*	printf("NUMBER_OF_TOKENS: %d\n", tokens.tokens_count);*/
+/*	for (int i = 0; i < tokens.tokens_count; i++) {*/
+/*		if (tokens.tokens[i].token == OP_CODE) {*/
+/*			printf("OP_CODE: %s\n", tokens.tokens[i].value);*/
+/*		} else if (tokens.tokens[i].token == REGISTER) {*/
+/*			printf("REGISTER: %s\n", tokens.tokens[i].value);*/
+/*		} else if (tokens.tokens[i].token == COMMA) {*/
+/*			printf("COMMA\n");*/
+/*		} else if (tokens.tokens[i].token == NUMBER) {*/
+/*			printf("NUMBER: %s\n", tokens.tokens[i].value);*/
+/*		}*/
+/*	}*/
+/*}*/
 int main(int argc, char *argv[]) {
 	if (argv[1] == NULL) {
 		fprintf(stderr, "Please specify a .was file\n");
@@ -104,8 +109,18 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
+	Line *program = NULL;
+	Line *head = NULL;
+
 	while ((read = getline(&line, &len, asm_file)) != -1) {
-		parse_line(line);
+		if (program == NULL) {
+
+			program = prepare_tokens(line);
+			head = program;
+		} else {
+			program->next_line = prepare_tokens(line);
+			program = program->next_line;
+		}
 	}
 
 	fclose(asm_file);
