@@ -444,8 +444,10 @@ int main(int argc, char *argv[]) {
 		next(&cpu);
 	}
 
-	if (debug)
+	if (debug) {
 		debug_mem(&cpu);
+		printf("[%d %d %d %d %d]", cpu.registers[A], cpu.registers[B], cpu.registers[C], cpu.registers[D], cpu.registers[E]);
+	}
 
 	fclose(program);
 	exit(EXIT_SUCCESS);

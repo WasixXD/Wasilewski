@@ -1,3 +1,2 @@
-MOV a, 5 
-ADD a, 2 
+MOV a, $150
 HLT

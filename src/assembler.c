@@ -15,13 +15,37 @@ typedef enum {
 	E_REGISTER = 0b0101,
 	HLT = 0b00000000,
 	ADD = 0b00000001,
+	SUB = 0b00000010,
+	MUL = 0b00000011,
+	DIV = 0b00000100,
+	AND = 0b00000101,
+	OR = 0b00000110,
+	NOT = 0b00000111,
+	XOR = 0b00001000,
+	SHR = 0b00001001,
+	SHL = 0b00001010,
+	JMP = 0b00010000,
+	JE = 0b00010001,
+	JNE = 0b00010010,
+	JG = 0b00010011,
+	JNG = 0b00010100,
 	MOV = 0b00010101,
+	LOAD = 0b00010110,
+	STORE = 0b00010111,
+	PUSH = 0b00011000,
+	POP = 0b00011001,
+	PUSHR = 0b00011010,
+	POPR = 0b00011011,
+	CALL = 0b0011100,
+	RET = 0b00011101,
+	SYS = 0b1000000
 
 } OP_BINARY;
 
 typedef struct {
 	char *value;
 	TOKENS_TYPE token;
+	OP_BINARY bin;
 } Token;
 
 typedef struct Line {
@@ -30,6 +54,88 @@ typedef struct Line {
 	int tokens_count;
 	struct Line *next_line;
 } Line;
+
+unsigned long hash(const char *str) {
+	unsigned long hash = 5381;
+	int c;
+
+	while ((c = *str++)) {
+		hash = ((hash << 5) + hash) + c;
+	}
+
+	return hash;
+}
+
+OP_BINARY get_bin(char *str) {
+	switch (hash(str)) {
+	case 177670:
+		return A_REGISTER;
+	case 177671:
+		return B_REGISTER;
+	case 177672:
+		return C_REGISTER;
+	case 177673:
+		return D_REGISTER;
+	case 177674:
+		return E_REGISTER;
+	case 193457997:
+		return HLT;
+	case 193450094:
+		return ADD;
+	case 193470255:
+		return SUB;
+	case 193463731:
+		return MUL;
+	case 193453544:
+		return DIV;
+	case 193450424:
+		return AND;
+	case 5862598:
+		return OR;
+	case 193464630:
+		return NOT;
+	case 193475518:
+		return XOR;
+	case 193469842:
+		return SHR;
+	case 193469836:
+		return SHL;
+	case 193460204:
+		return JMP;
+	case 5862420:
+		return JE;
+	case 193460226:
+		return JNE;
+	case 5862422:
+		return JG;
+	case 193460228:
+		return JNG;
+	case 193463543:
+		return MOV;
+	case 6384260357:
+		return LOAD;
+	case 210689088690:
+		return STORE;
+	case 6384411237:
+		return PUSH;
+	case 193466804:
+		return POP;
+	case 210685570903:
+		return PUSHR;
+	case 6384404614:
+		return POPR;
+	case 6383922049:
+		return CALL;
+	case 193468656:
+		return RET;
+	case 193470404:
+		return SYS;
+	default: {
+		printf("[*] ERROR: Not such command as %s\n", str);
+		exit(EXIT_FAILURE);
+	} break;
+	}
+}
 
 Line *prepare_tokens(char *line) {
 	static int line_count = 0;
@@ -48,10 +154,25 @@ Line *prepare_tokens(char *line) {
 			break;
 
 		Token new_token;
+		// throw this on a switch
 		if (line[c] == ',') {
 			new_token.token = COMMA;
 			new_token.value = &line[c];
 			c++;
+		} else if (line[c] == '[' || line[c] == ']') {
+			new_token.token = S_BRACKETS;
+			new_token.value = &line[c];
+			c++;
+
+		} else if (line[c] == '$') {
+			new_token.token = DOLLAR;
+			new_token.value = &line[c];
+			c++;
+		} else if (line[c] == ';') {
+			new_token.token = COMMENTARY;
+			new_token.value = &line[c];
+			break;
+
 		} else if (isalpha(line[c])) {
 			int length = 0;
 			new_token.value = (char *)malloc(5 * sizeof(char));
@@ -59,6 +180,7 @@ Line *prepare_tokens(char *line) {
 				new_token.value[length++] = line[c++];
 			}
 			new_token.value[length] = '\0';
+			new_token.bin = get_bin(new_token.value);
 			if (length == 1) {
 				new_token.token = REGISTER;
 			} else {
@@ -72,9 +194,8 @@ Line *prepare_tokens(char *line) {
 			}
 			new_token.token = NUMBER;
 		} else {
-			new_token.token = UNKNOWN;
-			new_token.value = "\0";
-			c++;
+			printf("[*] ERROR on line %d, unexpected token: %s\n", line_count, &line[c]);
+			exit(EXIT_FAILURE);
 		}
 
 		items->tokens[items->tokens_count++] = new_token;
@@ -89,33 +210,33 @@ void compile(Line *head, char *output_file) {
 	FILE *stream = fopen(output_file, "wb");
 	while (helper != NULL) {
 		uint8_t op_code = 0;
-		uint8_t regS = 0;
+		uint8_t regA = 0;
+		uint8_t regB = 0;
 		uint16_t value = 0;
 
 		for (int i = 0; i < helper->tokens_count; i++) {
 			Token current_token = helper->tokens[i];
-			// TODO: REFACTO THIS
 			if (current_token.token == OP_CODE) {
-				if (strcmp(current_token.value, "MOV") == 0) {
-					op_code = MOV;
-				} else if (strcmp(current_token.value, "ADD") == 0) {
-					op_code = ADD;
-				} else if (strcmp(current_token.value, "HLT") == 0) {
-					op_code = HLT;
-				}
+				op_code = current_token.bin;
 			} else if (current_token.token == REGISTER) {
-				if (strcmp(current_token.value, "a") == 0) {
-					regS = A_REGISTER << 4;
+				if (regA == 0) {
+					regA = current_token.bin;
+				} else {
+					regB = current_token.bin;
 				}
 			} else if (current_token.token == NUMBER) {
-				value = atoi(current_token.value);
+				value |= atoi(current_token.value);
+			} else if (current_token.token == DOLLAR) {
+				// THIS IS NOT WORKING
+				value |= 0b1011 << 12;
 			}
 		}
-		uint32_t instruction = htonl(((uint32_t)op_code) << 24 | ((uint32_t)regS) << 16 | (uint32_t)value);
+		uint32_t instruction = htonl(((uint32_t)op_code) << 24 | ((uint32_t)regA) << 20 | ((uint32_t)regB) << 16 | (uint32_t)value);
 		fwrite(&instruction, sizeof(instruction), 1, stream);
-		printf("instruction: 0x%08X\n", instruction);
+		printf("\ninstruction: 0x%08X\n", instruction);
 		printf("op_code: %d\n", op_code);
-		printf("regS: %d\n", regS);
+		printf("regA: %d\n", regA);
+		printf("regB: %d\n", regB);
 		printf("value: %d\n", value);
 
 		helper = helper->next_line;
@@ -123,6 +244,7 @@ void compile(Line *head, char *output_file) {
 }
 
 int main(int argc, char *argv[]) {
+
 	if (argv[1] == NULL) {
 		fprintf(stderr, "Please specify a .was file\n");
 		exit(EXIT_FAILURE);

@@ -4,3 +4,4 @@ program.txt
 *.o
 *.bin
 test/__pycache__
+test.js
