@@ -1,11 +1,12 @@
 #include <arpa/inet.h>
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum { OP_CODE, COMMA, S_BRACKETS, DOLLAR, COMMENTARY, NUMBER, MEMORY_LOCATION, REGISTER, UNKNOWN, PROCEDURE } TOKENS_TYPE;
+typedef enum { OP_CODE, COMMA, S_BRACKETS, DOLLAR, COMMENTARY, NUMBER, MEMORY_LOCATION, REGISTER, UNKNOWN, PROCEDURE, PROC_NAME } TOKENS_TYPE;
 
 typedef enum {
 	A_REGISTER = 0b0001,
@@ -38,7 +39,7 @@ typedef enum {
 	POPR = 0b00011011,
 	CALL = 0b0011100,
 	RET = 0b00011101,
-	SYS = 0b1000000
+	SYS = 0b10000000
 
 } OP_BINARY;
 
@@ -52,6 +53,7 @@ typedef struct Line {
 	int line_index;
 	Token tokens[16];
 	int tokens_count;
+	bool is_proc;
 	struct Line *next_line;
 } Line;
 
@@ -131,8 +133,7 @@ OP_BINARY get_bin(char *str) {
 	case 193470404:
 		return SYS;
 	default: {
-		printf("[*] ERROR: Not such command as %s\n", str);
-		exit(EXIT_FAILURE);
+		return -1;
 	} break;
 	}
 }
@@ -143,6 +144,7 @@ Line *prepare_tokens(char *line) {
 	items->next_line = NULL;
 	items->line_index = line_count;
 	items->tokens_count = 0;
+	items->is_proc = false;
 
 	int c = 0;
 
@@ -150,7 +152,7 @@ Line *prepare_tokens(char *line) {
 		while (isspace(line[c])) {
 			c++;
 		}
-		if (line[c] == '\0')
+		if (line[c] == '\0' || line[c] == ':')
 			break;
 
 		Token new_token;
@@ -179,8 +181,31 @@ Line *prepare_tokens(char *line) {
 			while (isalnum(line[c])) {
 				new_token.value[length++] = line[c++];
 			}
+
 			new_token.value[length] = '\0';
 			new_token.bin = get_bin(new_token.value);
+
+			if (new_token.bin == -1 && line[c] == ':') {
+				new_token.bin = 1;
+				new_token.token = PROCEDURE;
+
+				items->tokens[items->tokens_count++] = new_token;
+				break;
+			}
+
+			if (items->is_proc) {
+				new_token.bin = 1;
+				new_token.token = PROC_NAME;
+				items->is_proc = false;
+
+				items->tokens[items->tokens_count++] = new_token;
+				break;
+			}
+
+			if (new_token.bin == CALL) {
+				items->is_proc = true;
+			}
+
 			if (length == 1) {
 				new_token.token = REGISTER;
 			} else {
@@ -193,7 +218,7 @@ Line *prepare_tokens(char *line) {
 				new_token.value[length++] = line[c++];
 			}
 			new_token.token = NUMBER;
-		} else {
+		} else if (!items->is_proc) {
 			printf("[*] ERROR on line %d, unexpected token: %s\n", line_count, &line[c]);
 			exit(EXIT_FAILURE);
 		}
@@ -203,6 +228,16 @@ Line *prepare_tokens(char *line) {
 	line_count++;
 
 	return items;
+}
+
+int get_procedure_line(Line *head, const char *str) {
+	while (head != NULL) {
+		if (head->tokens[0].token == PROCEDURE && strcmp(head->tokens[0].value, str) == 0) {
+			return head->line_index;
+		}
+		head = head->next_line;
+	}
+	return -1;
 }
 
 void compile(Line *head, char *output_file) {
@@ -216,6 +251,17 @@ void compile(Line *head, char *output_file) {
 
 		for (int i = 0; i < helper->tokens_count; i++) {
 			Token current_token = helper->tokens[i];
+			if (current_token.bin == -1) {
+				printf("[*] ERROR: Not such command as %s in line %d\n", current_token.value, helper->line_index);
+				exit(EXIT_FAILURE);
+			}
+			if (current_token.token == PROC_NAME) {
+				if ((value |= get_procedure_line(helper, current_token.value)) == (uint16_t)-1) {
+					printf("[*] ERROR: Could not find the procedure %s\n", current_token.value);
+					exit(EXIT_FAILURE);
+				}
+			}
+
 			if (current_token.token == OP_CODE) {
 				op_code = current_token.bin;
 			} else if (current_token.token == REGISTER) {
@@ -227,13 +273,13 @@ void compile(Line *head, char *output_file) {
 			} else if (current_token.token == NUMBER) {
 				value |= atoi(current_token.value);
 			} else if (current_token.token == DOLLAR) {
-				// THIS IS NOT WORKING
 				value |= 0b1011 << 12;
 			}
 		}
 		uint32_t instruction = htonl(((uint32_t)op_code) << 24 | ((uint32_t)regA) << 20 | ((uint32_t)regB) << 16 | (uint32_t)value);
 		fwrite(&instruction, sizeof(instruction), 1, stream);
-		printf("\ninstruction: 0x%08X\n", instruction);
+		printf("\nLINE: %d\n", helper->line_index);
+		printf("instruction: 0x%08X\n", instruction);
 		printf("op_code: %d\n", op_code);
 		printf("regA: %d\n", regA);
 		printf("regB: %d\n", regB);

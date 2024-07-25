@@ -1,2 +1,7 @@
-MOV a, $150
+MOV b, 0
+MOV c, 1
+MOV d, 3
+SYS
+MOV b, 1 
+SYS
 HLT

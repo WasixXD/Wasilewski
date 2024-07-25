@@ -82,6 +82,7 @@ SYS 1000 0000
 
 MOV b, 0 
 MOV c, 1
+MOV d, 2
 SYS
 MOV b, 1 
 SYS

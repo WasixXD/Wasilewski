@@ -284,7 +284,8 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 			cpu->registers[regA] = memory_value;
 		} else if (key == 0xb) {
 			// Put the memory index on the regA
-			cpu->registers[regA] = bk_get_addr(cpu, lower_nibble | instruction[3]);
+			uint16_t value = bk_get_addr(cpu, lower_nibble | instruction[3]);
+			cpu->registers[regA] = value;
 		} else {
 			// Put the value of regB or the raw value on the regA
 			cpu->registers[regA] = (regB == 0) ? value : cpu->registers[regB];
