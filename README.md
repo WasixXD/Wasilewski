@@ -37,13 +37,13 @@ The CPU performs three basic steps: Fetch -> Decode -> Execute. First, we load o
 
 After that, we decode the instruction to determine what the CPU is supposed to do and then execute the corresponding operation. 
 
-# The Stack
+### The Stack
 The Wasilewski features a 256-byte stack that supports basic stack operations. It's recommended for storing register values using the PUSHR instruction.
 
-# The BookKeeper
+### The BookKeeper
 The BookKeeper (BK) is a 512-byte address holder responsible for all memory operations, as it is the only component that interfaces with the ROM. It is useful for storing initial variable values.
 
-# The ROM
+### The ROM
 The CPU includes a 1024-byte Read-Only Memory (ROM) segment. This memory is used solely for storing variables or values set by the LOAD and STORE commands.
 
 
