@@ -1,7 +1,6 @@
-MOV b, 0
-MOV c, 1
-MOV d, 3
-SYS
-MOV b, 1 
-SYS
+CALL hello
 HLT
+
+hello:
+    ADD a, 1
+    RET
