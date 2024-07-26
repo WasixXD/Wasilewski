@@ -81,8 +81,8 @@ We have four basic commands for arithmetic operations: `ADD`, `SUB`, `MUL`, and 
 - `JMP` (JUMP): Sets the PC to the line that we will jump. _Notice that the program starts counting from 0_
 - `JE` (Jump if Equal): Skips the next instruction if the `regA` equals to the second parameter
 - `JNE` (Jump if Not Equal): Skips the next instruction if `regA` not equals to the second parameter
-- `JG` (Jump if Greater than): Skips the next instruction if `regA` is greater that the second parameter
-- `JNG` (Jump if Not Greater than): Skips the next instruction if `regA` is not greater that the second parameter
+- `JG` (Jump if Greater than): Skips the next instruction if `regA` is greater than the second parameter
+- `JNG` (Jump if Not Greater than): Skips the next instruction if `regA` is not greater than the second parameter
 
 ### Memory operations
 - `MOV` (Move): Requires both `regA` and a second parameter. The second parameter can be three things:
