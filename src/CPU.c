@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define CPU_MEM 4096
+#define CPU_MEM 16384
 
 #define STACK_SIZE 256
-#define STACK_START 0x0800 // 2048
+#define STACK_START 0x2710 // 100000
 #define STACK_END STACK_START + STACK_SIZE
 
 #define BK_SIZE 512
@@ -240,16 +240,30 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 	} break;
 
 	case JE: {
-		if (cpu->registers[regA] != value || cpu->registers[regA] == cpu->registers[regB]) {
-			next(cpu);
+		if(regB != 0) {
+			if(cpu->registers[regA] != cpu->registers[regB]) {
+				next(cpu);
+			}
+		} else {
+			if(cpu->registers[regA] != value) {
+				next(cpu);
+			}
 		}
+		
 		msg = "[x] JE";
 	} break;
 
 	case JNE: {
-		if (cpu->registers[regA] == value || cpu->registers[regA] != cpu->registers[regB])
-			next(cpu);
-
+		if(regB != 0) {
+			if(cpu->registers[regA] == cpu->registers[regB]) {
+				next(cpu);
+			}
+		} else {
+			if(cpu->registers[regA] == value) {
+				next(cpu);
+			}
+		}
+		
 		msg = "[x] JNE";
 	} break;
 
@@ -295,24 +309,21 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 
 	case LOAD: {
 		// Always load the value on the memory
-		if (regB == 0) {
+		if (regA != 0 && value != 0) {
 			uint16_t address = bk_get_addr(cpu, value);
 			cpu->registers[regA] = cpu->memory[address];
-		} else {
-			uint16_t address = bk_get_addr(cpu, value);
-			cpu->registers[regA] = cpu->memory[address];
-		}
+		} 
 		msg = "[x] LOAD";
 	} break;
 
 	case STORE: {
 		// store the value on regB or value on the memory_index on regA
-		if (regB == 0) {
+		if (regA == 0) {
 			uint16_t address = bk_set_addr(cpu, value);
 			cpu->memory[address] = value;
 		} else {
-			uint16_t address = bk_set_addr(cpu, cpu->registers[regB]);
-			cpu->memory[address] = cpu->registers[regB];
+			uint16_t address = bk_set_addr(cpu, value);
+			cpu->memory[address] = cpu->registers[regA];
 		}
 		msg = "[x] STORE";
 	} break;
@@ -394,7 +405,7 @@ void decode_execute(CPU *cpu, uint16_t *instruction) {
 		} else if (cpu->registers[B] == 1) {
 			// C == 0 WRITE INT
 			if (cpu->registers[C] == 0) {
-				printf("%d", cpu->registers[A]);
+				printf("%d\n", cpu->registers[A]);
 				// C == 1 WRITE STRING
 			} else if (cpu->registers[C] == 1) {
 				for (int i = 0; i < cpu->registers[D]; i++) {
@@ -447,7 +458,6 @@ int main(int argc, char *argv[]) {
 
 	if (debug) {
 		debug_mem(&cpu);
-		printf("[%d %d %d %d %d]", cpu.registers[A], cpu.registers[B], cpu.registers[C], cpu.registers[D], cpu.registers[E]);
 	}
 
 	fclose(program);
