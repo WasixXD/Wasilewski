@@ -62,6 +62,15 @@ Run the tests with
 chmod +x ./test.sh
 ./test.sh
 ```
+Create a file ending with `.was` and compile it with:
+```
+$ ./asm.o your_file.was output.bin
+```
+
+After that you can execute the binary with:
+```
+$ ./machine.o output.bin
+```
 
 
 ___
